@@ -8,10 +8,10 @@ Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo ·
 
 ## Phase 0 — Foundations
 
-- [ ] Create Next.js 15 + TS app, Tailwind, shadcn/ui init
-  - `npx create-next-app@latest` with App Router + TypeScript + Tailwind
-  - `npx shadcn@latest init`
-  - Add `@sentry/nextjs`, configure `sentry.client/server/edge.config.ts`
+- [x] Create Next.js 15 + TS app, Tailwind, shadcn/ui init
+  - Next.js 15.5.19, React 19, strict TS, Tailwind v4, shadcn neutral theme
+  - Sentry wired via `withSentryConfig`; PII scrubbed in `beforeSend`
+  - All project deps installed; `typecheck` + `lint` scripts pass clean
 - [ ] Create Supabase project; add `.env.local` from `.env.example`
 - [ ] Apply schema + RLS from `docs/SCHEMA.md`
   - Write migration SQL into `supabase/migrations/0001_init.sql`
