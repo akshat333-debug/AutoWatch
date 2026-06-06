@@ -18,7 +18,10 @@ Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo ·
 - [x] Apply schema + RLS from `docs/SCHEMA.md`
   - All 7 tables created, RLS enabled on all, 7 policies applied via MCP
   - Real generated types written to lib/database.types.ts
-- [ ] GitHub → Vercel auto-deploy; separate prod/preview env vars
+- [x] GitHub → Vercel auto-deploy; separate prod/preview env vars
+  - Project: autowatch on Vercel, linked to akshat333-debug/AutoWatch
+  - Prod env vars set: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+  - Live at https://autowatch.vercel.app; auto-deploys on push to main
 
 ## Phase 1 — Auth + dashboard shell
 
