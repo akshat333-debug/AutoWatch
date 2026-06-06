@@ -12,10 +12,12 @@ Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo ·
   - Next.js 15.5.19, React 19, strict TS, Tailwind v4, shadcn neutral theme
   - Sentry wired via `withSentryConfig`; PII scrubbed in `beforeSend`
   - All project deps installed; `typecheck` + `lint` scripts pass clean
-- [ ] Create Supabase project; add `.env.local` from `.env.example`
-- [ ] Apply schema + RLS from `docs/SCHEMA.md`
-  - Write migration SQL into `supabase/migrations/0001_init.sql`
-  - `npx supabase db push`; verify all 7 tables + RLS policies exist
+- [x] Create Supabase project; add `.env.local` from `.env.example`
+  - Project: AutoWatch (sucgnzxpljvkplcgvvyu), region ap-south-1, free tier
+  - .env.local has URL + anon key; SUPABASE_SERVICE_ROLE_KEY needs manual fill from dashboard
+- [x] Apply schema + RLS from `docs/SCHEMA.md`
+  - All 7 tables created, RLS enabled on all, 7 policies applied via MCP
+  - Real generated types written to lib/database.types.ts
 - [ ] GitHub → Vercel auto-deploy; separate prod/preview env vars
 
 ## Phase 1 — Auth + dashboard shell
