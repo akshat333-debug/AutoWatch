@@ -56,7 +56,7 @@ Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo ·
   - Shows endpoint badge, error badge, description (summary text when available, structured fields, or "Pending…")
   - Server-side relative timestamps; empty state links to /dashboard/endpoints
   - summaries join included now — Phase 3 just inserts rows, no UI change needed
-- [ ] **Milestone: a signed event lands and shows up**
+- [x] **Milestone: a signed event lands and shows up**
 
 ## Phase 3 — Summarization
 
@@ -73,9 +73,11 @@ Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo ·
   - Idempotency: skips if status === "summarized"; handles 23505 on summaries insert
   - JSON parse fallback: raw text used as summary if LLM returns non-JSON
   - Ingest route enqueues via next/server after() (bare void promise was killed post-202)
-- [ ] Show plain-English summaries in timeline + event detail drawer
-  - Dashboard already joins summaries — just needs populated data (send a test event)
-- [ ] **Milestone: "Your CRM zap updated 47 contacts" on screen**
+- [x] Show plain-English summaries in timeline + event detail drawer
+  - Dashboard joins summaries; verified live with test-phase3-005
+- [x] **Milestone: "Your CRM zap updated 47 contacts" on screen**
+  - Verified end-to-end 2026-06-07: signed webhook → Gemini → "Updated 47 contacts in HubSpot"
+    + structured fields (updated/contact/47/HubSpot), status=summarized, model=gemini-3.1-flash-lite
 
 ## Phase 4 — Alerting
 
