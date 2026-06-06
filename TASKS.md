@@ -81,10 +81,20 @@ Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo ·
 
 ## Phase 4 — Alerting
 
-- [ ] Stalled detection Inngest cron + alert email via Resend
-- [ ] Failure detection from `is_error` signal on ingest
-- [ ] Alerts inbox UI + resolve action
+- [x] Stalled detection Inngest cron + alert email via Resend
+  - lib/inngest/check-stalled.ts: 5-min cron; checks endpoints with expected_interval_seconds
+  - Dedup: one unresolved "stalled" alert per endpoint at a time
+  - lib/resend.ts: Resend client + sendAlertEmail() + getOrgOwnerEmail()
+- [x] Failure detection from `is_error` signal on ingest
+  - lib/inngest/alert-on-failure.ts: triggered by event/ingested, checks is_error
+  - Inserts alert row + emails org owner (best-effort, non-fatal)
+- [x] Alerts inbox UI + resolve action
+  - app/(dashboard)/dashboard/alerts/page.tsx: open/resolved sections, kind/severity badges
+  - app/actions/alerts.ts: resolveAlert server action (RLS-scoped, revalidates)
 - [ ] **Milestone: I get emailed when an automation breaks/stalls**
+  - ⚠️ Requires: RESEND_API_KEY set in Vercel + Inngest re-registered after deploy
+  - ⚠️ Free Resend plan requires sending from onboarding@resend.dev or a verified domain
+  - ⚠️ Set expected_interval_seconds on an endpoint to enable stalled detection
 
 ## Phase 5 — Monetization
 
