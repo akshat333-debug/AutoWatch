@@ -44,8 +44,13 @@ Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo ·
   - Server action: Zod-validated, RLS-scoped INSERT, crypto.randomBytes(32) for both keys
   - Client form: useActionState, one-time secret reveal panel with copy buttons
   - List page: SELECT excludes signing_secret; router.refresh() on Done
-- [ ] `POST /api/ingest/[key]` with HMAC verify (`lib/hmac.ts`, raw body, constant-time compare)
-- [ ] Idempotency on `dedup_key`; quota check → `429`; always return `202`
+- [x] `POST /api/ingest/[key]` with HMAC verify (`lib/hmac.ts`, raw body, constant-time compare)
+  - lib/hmac.ts: verifyHmacSignature with timingSafeEqual; rejects bad length before compare
+  - Route: raw body buffered first, endpoint lookup, HMAC verify, quota check, idempotent insert
+  - 401/404/429/202 per spec; never logs or echoes payload (PII); dedup_key + is_error extracted
+  - TODO(phase3): Inngest enqueue stub left in place
+- [x] Idempotency on `dedup_key`; quota check → `429`; always return `202`
+  - Covered in route above: catches 23505 for duplicate dedup_key (→ 202), quota count query, 429 on exceed
 - [ ] Event timeline (raw events) in dashboard
 - [ ] **Milestone: a signed event lands and shows up**
 
