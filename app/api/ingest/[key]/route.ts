@@ -2,6 +2,7 @@ import "server-only";
 import { type NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { verifyHmacSignature } from "@/lib/hmac";
+import { inngest } from "@/lib/inngest/client";
 import type { Json } from "@/lib/database.types";
 
 // Ensure this route always runs in the Node.js runtime (needed for
@@ -104,14 +105,18 @@ export async function POST(
   }
 
   // ── 8. Persist event (idempotent on dedup_key) ───────────────────────────
-  const { error: insertError } = await supabaseAdmin.from("events").insert({
-    org_id: endpoint.org_id,
-    endpoint_id: endpoint.id,
-    raw_payload: payload,
-    dedup_key,
-    is_error,
-    status: "pending",
-  });
+  const { data: newEvent, error: insertError } = await supabaseAdmin
+    .from("events")
+    .insert({
+      org_id: endpoint.org_id,
+      endpoint_id: endpoint.id,
+      raw_payload: payload,
+      dedup_key,
+      is_error,
+      status: "pending",
+    })
+    .select("id")
+    .single();
 
   if (insertError) {
     // Unique index violation on (org_id, dedup_key) → already stored; idempotent
@@ -123,8 +128,19 @@ export async function POST(
     return err("server_error", "Internal server error", 500);
   }
 
-  // ── 9. TODO(phase3): enqueue Inngest event/ingested ───────────────────────
-  // await inngest.send({ name: "event/ingested", data: { eventId: newEvent.id } });
+  // ── 9. Enqueue Inngest summarize job (non-blocking) ───────────────────────
+  // Fire-and-forget: the 202 response must never block on Inngest availability.
+  // If keys aren't configured locally, this logs a warning and moves on.
+  if (newEvent?.id) {
+    void inngest
+      .send({ name: "event/ingested", data: { eventId: newEvent.id } })
+      .catch((enqueueErr: unknown) => {
+        console.error(
+          "[ingest] inngest.send failed — event stored but not enqueued:",
+          enqueueErr instanceof Error ? enqueueErr.message : enqueueErr
+        );
+      });
+  }
 
   return Response.json({ ok: true }, { status: 202 });
 }

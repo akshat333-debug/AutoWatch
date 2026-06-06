@@ -2,7 +2,7 @@
 
 Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked.
 
-**Current phase:** 0
+**Current phase:** 3
 
 ---
 
@@ -60,10 +60,20 @@ Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo ·
 
 ## Phase 3 — Summarization
 
-- [ ] Inngest setup + `/api/inngest` route; register `summarize` function
-- [ ] `summarize` Inngest function (Haiku 4.5, cached system prompt, retries)
-- [ ] Store summary + extracted structured fields; flip event `status → summarized`
+- [x] Inngest setup + `/api/inngest` route; register `summarize` function
+  - lib/inngest/client.ts: singleton Inngest client (id: "autowatch")
+  - app/api/inngest/route.ts: serve() handler exporting GET/POST/PUT
+- [x] `summarize` Inngest function (Haiku 4.5, cached system prompt, retries)
+  - lib/inngest/summarize.ts: retries: 3, triggers: [{ event: "event/ingested" }]
+  - lib/anthropic.ts: server-only Anthropic client; MODEL_SUMMARY = claude-haiku-4-5
+  - System prompt requests JSON: summary, action_type, object_type, object_count, target_system
+  - cache_control: ephemeral on system block (ready for future expansion)
+- [x] Store summary + extracted structured fields; flip event `status → summarized`
+  - Idempotency: skips if status === "summarized"; handles 23505 on summaries insert
+  - JSON parse fallback: raw text used as summary if LLM returns non-JSON
+  - Non-blocking inngest.send() in ingest route: logs on failure, never blocks 202
 - [ ] Show plain-English summaries in timeline + event detail drawer
+  - Dashboard already joins summaries — just needs populated data (send a test event)
 - [ ] **Milestone: "Your CRM zap updated 47 contacts" on screen**
 
 ## Phase 4 — Alerting
