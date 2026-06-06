@@ -25,9 +25,17 @@ Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo ·
 
 ## Phase 1 — Auth + dashboard shell
 
-- [ ] Supabase magic-link auth (`@supabase/ssr` server client)
-- [ ] Org creation on first login + `org_members` row (server action)
-- [ ] Protected dashboard layout with shadcn sidebar, empty states
+- [x] Supabase magic-link auth (`@supabase/ssr` server client)
+  - middleware.ts: protects /dashboard, redirects unauthenticated → /login
+  - /login page + server action (signInWithOtp → redirect on sent/error)
+  - /auth/callback: exchanges code, sets session cookies
+  - ⚠️ Manual step: add redirect URLs in Supabase Auth dashboard
+- [x] Org creation on first login + `org_members` row (server action)
+  - lib/ensure-org.ts: idempotent — checks org_members before inserting
+  - Called from /auth/callback after session established
+- [x] Protected dashboard layout with shadcn sidebar, empty states
+  - DashboardNav with Activity / Alerts / Endpoints links + sign-out
+  - /dashboard page with empty state
 - [ ] **Milestone: I can log in and see an empty dashboard**
 
 ## Phase 2 — Secure ingestion
