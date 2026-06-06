@@ -1,13 +1,12 @@
 import "server-only";
 import { inngest } from "./client";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { anthropic, MODEL_SUMMARY } from "@/lib/anthropic";
+import { gemini, MODEL_SUMMARY } from "@/lib/gemini";
 
 // ── System prompt ─────────────────────────────────────────────────────────────
-// Cached on the system slot (cache_control added below).
-// Haiku 4.5 minimum cacheable prefix is 4096 tokens; this prompt is shorter,
-// so the cache silently won't activate until the prompt grows. That's fine —
-// no harm, and cost is already low on Haiku.
+// Sent as Gemini systemInstruction. We also set responseMimeType to
+// application/json on the request, which constrains the model to emit valid
+// JSON — so the parse below is reliable (the fallback stays as defence in depth).
 const SYSTEM_PROMPT = `\
 You are an automation event summarizer for AutoWatch.
 Given a raw webhook payload from a no-code automation (Zapier, Make, n8n, or similar),
@@ -66,46 +65,40 @@ export const summarize = inngest.createFunction(
       return { skipped: true, eventId };
     }
 
-    // ── 2. Call Haiku 4.5 ─────────────────────────────────────────────────────
-    // Per CLAUDE.md: Haiku 4.5 for per-event work; never Sonnet/Opus inline.
+    // ── 2. Call Gemini Flash-Lite ─────────────────────────────────────────────
+    // Per CLAUDE.md cost rule: cheap Flash-tier model for per-event work.
+    // responseMimeType=application/json constrains output to valid JSON.
     // Do NOT log raw_payload — it may contain customer PII.
-    const response = await anthropic.messages.create({
+    const response = await gemini.models.generateContent({
       model: MODEL_SUMMARY,
-      max_tokens: 256,
-      system: [
-        {
-          type: "text",
-          text: SYSTEM_PROMPT,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
-      messages: [
-        {
-          role: "user",
-          content: `Summarize this automation event payload:\n\n${JSON.stringify(
-            row.raw_payload,
-            null,
-            2
-          )}`,
-        },
-      ],
+      contents: `Summarize this automation event payload:\n\n${JSON.stringify(
+        row.raw_payload,
+        null,
+        2
+      )}`,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        responseMimeType: "application/json",
+        temperature: 0,
+        maxOutputTokens: 256,
+      },
     });
 
-    const textBlock = response.content.find((b) => b.type === "text");
-    if (!textBlock || textBlock.type !== "text") {
-      throw new Error(`[summarize] no text block in Haiku response for event ${eventId}`);
+    const responseText = response.text;
+    if (!responseText) {
+      throw new Error(`[summarize] empty Gemini response for event ${eventId}`);
     }
 
     // ── 3. Parse structured JSON response ─────────────────────────────────────
     let parsed: ParsedSummary;
     try {
-      parsed = JSON.parse(textBlock.text) as ParsedSummary;
+      parsed = JSON.parse(responseText) as ParsedSummary;
     } catch {
       // Fallback: treat raw text as the summary with null structured fields.
       // This lets the retry have a chance to fix it; this path is still useful
       // as a last resort after all retries.
       parsed = {
-        summary: textBlock.text.trim().slice(0, 200),
+        summary: responseText.trim().slice(0, 200),
         action_type: null,
         object_type: null,
         object_count: null,
@@ -113,7 +106,7 @@ export const summarize = inngest.createFunction(
       };
     }
 
-    const summaryText = (parsed.summary ?? textBlock.text.trim()).slice(0, 500);
+    const summaryText = (parsed.summary ?? responseText.trim()).slice(0, 500);
 
     // Coerce object_count to a valid integer or null
     const objectCount =

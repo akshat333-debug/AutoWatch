@@ -63,15 +63,16 @@ Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo ·
 - [x] Inngest setup + `/api/inngest` route; register `summarize` function
   - lib/inngest/client.ts: singleton Inngest client (id: "autowatch")
   - app/api/inngest/route.ts: serve() handler exporting GET/POST/PUT
-- [x] `summarize` Inngest function (Haiku 4.5, cached system prompt, retries)
+- [x] `summarize` Inngest function (Gemini Flash-Lite, structured JSON, retries)
   - lib/inngest/summarize.ts: retries: 3, triggers: [{ event: "event/ingested" }]
-  - lib/anthropic.ts: server-only Anthropic client; MODEL_SUMMARY = claude-haiku-4-5
-  - System prompt requests JSON: summary, action_type, object_type, object_count, target_system
-  - cache_control: ephemeral on system block (ready for future expansion)
+  - lib/gemini.ts: server-only @google/genai client; MODEL_SUMMARY = gemini-3.1-flash-lite
+  - responseMimeType: "application/json" → guaranteed valid JSON output
+  - System prompt requests: summary, action_type, object_type, object_count, target_system
+  - Provider switched from Anthropic→Gemini 2026-06-07 (Anthropic acct had no credit; Gemini free tier 500 RPD on Flash-Lite). lib/anthropic.ts kept dormant.
 - [x] Store summary + extracted structured fields; flip event `status → summarized`
   - Idempotency: skips if status === "summarized"; handles 23505 on summaries insert
   - JSON parse fallback: raw text used as summary if LLM returns non-JSON
-  - Non-blocking inngest.send() in ingest route: logs on failure, never blocks 202
+  - Ingest route enqueues via next/server after() (bare void promise was killed post-202)
 - [ ] Show plain-English summaries in timeline + event detail drawer
   - Dashboard already joins summaries — just needs populated data (send a test event)
 - [ ] **Milestone: "Your CRM zap updated 47 contacts" on screen**

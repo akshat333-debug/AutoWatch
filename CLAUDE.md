@@ -15,7 +15,7 @@
 - **Next.js 15** (App Router) + **React 19** + **TypeScript** (strict)
 - **Supabase** (Postgres + Auth + Row-Level Security) — `@supabase/supabase-js`, `@supabase/ssr`
 - **Inngest** — durable background jobs (summarize, anomaly, digest)
-- **Anthropic SDK** — `claude-haiku-4-5` for per-event summaries, `claude-sonnet-4-6` for daily digests
+- **Google Gen AI SDK** (`@google/genai`) — `gemini-3.1-flash-lite` for per-event summaries, `gemini-3.5-flash` for daily digests. (Switched off Anthropic 2026-06-07 — Anthropic account had no credit; Gemini free tier gives 500 RPD on Flash-Lite. `lib/anthropic.ts` kept as a dormant fallback.)
 - **Stripe** — Checkout + Billing Portal + webhook
 - **Resend** — alert + digest emails
 - **shadcn/ui + Tailwind** — UI
@@ -49,7 +49,8 @@ lib/
   supabase-admin.ts       # service-role client (server only, bypasses RLS)
   supabase-server.ts      # RLS-scoped client from user JWT
   inngest/                # summarize, anomaly, digest functions
-  anthropic.ts            # model wrappers + prompt-cache config
+  gemini.ts               # Gemini client + model constants (per-event LLM)
+  anthropic.ts            # dormant fallback (unused since Gemini switch)
   hmac.ts                 # signature verify
 supabase/migrations/      # SQL incl. RLS policies (source of truth = docs/SCHEMA.md)
 docs/                     # PRD, ARCHITECTURE, DESIGN, API, SCHEMA, SECURITY, ERRORS
@@ -68,7 +69,7 @@ docs/                     # PRD, ARCHITECTURE, DESIGN, API, SCHEMA, SECURITY, ER
 
 1. **Never** ship an ingestion endpoint that trusts a URL path alone. Every ingest requires HMAC signature verification against the endpoint's `signing_secret`. See `docs/SECURITY.md`.
 2. **Never** log or send raw event payloads to Sentry or any third party — they contain customer PII.
-3. **Never** call the LLM per event with Sonnet/Opus by default — use Haiku 4.5 for per-event work (cost). Sonnet 4.6 only for the daily digest, ideally via the Batch API.
+3. **Never** call a Pro-tier / expensive LLM per event (cost). Per-event summaries use a cheap **Flash-tier** model — currently `gemini-3.1-flash-lite` (`lib/gemini.ts`). Reserve more capable models for the once-daily digest only. (Cost rule is provider-agnostic: the original Anthropic form was Haiku-per-event, Sonnet-for-digest.)
 4. **Never** implement anomaly detection as plain mean/stddev z-score — use the stalled + failure rules first (high signal), then MAD-based volume checks with a minimum baseline (see `docs/ARCHITECTURE.md`).
 5. **Never** widen the product copy to claim we capture "every AI tool." Scope = instrumented automations only.
 6. **Never** disable or skip RLS to "make it work." If a query fails under RLS, fix the policy, don't bypass it client-side.
@@ -89,11 +90,11 @@ When I say "snapshot" or before any /compact, update this section:
 
 ### Current state snapshot
 
-- **Last completed task:** Phase 3, Tasks 1–3 — Inngest + Haiku summarization pipeline (commit `47ecee1`). Inngest app created on app.inngest.com (app: `autowatch`), synced to `https://autowatch.vercel.app/api/inngest`. All three keys (`ANTHROPIC_API_KEY`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`) added to Vercel env vars (Production + Preview) and `.env.local`. Vercel redeployed manually — latest deployment `dpl_ALWfU56dpqYMVtyYAgn9pviNEvms` is READY.
-- **In progress:** Nothing.
-- **Next task:** Phase 3, Task 4 — verify Phase 3 milestone end-to-end: send a signed test webhook → confirm "Your CRM zap updated 47 contacts" (or similar) appears in the dashboard timeline. Dashboard UI already joins summaries — just needs a real event to flow through the pipeline.
-- **Open decisions:** None blocking. Phase 3 milestone (`"Your CRM zap updated 47 contacts" on screen`) not yet manually verified — send a test event to confirm.
-- **Errors in flight:** None. `npm run lint && npm run typecheck` passes clean.
+- **Last completed task:** Phase 3 pipeline debugged end-to-end + **switched LLM provider Anthropic → Gemini**. Two real bugs fixed during verification: (1) ingest `void inngest.send()` was killed when Vercel froze the function post-202 → now uses `next/server` `after()` (commit `170d1f4`); (2) Inngest app was never validly synced (signing-key mismatch) → fixed key + re-registered via `PUT /api/inngest` ("Successfully registered"). Then discovered Anthropic account had **no credit** ("credit balance too low") — so swapped per-event summarization to **Gemini `gemini-3.1-flash-lite`** via `@google/genai`.
+- **In progress:** Awaiting `GEMINI_API_KEY` in Vercel env + redeploy + Inngest re-sync, then final milestone test.
+- **Next task:** After user adds `GEMINI_API_KEY` to Vercel (Prod+Preview) and redeploys: re-sync Inngest (or `PUT /api/inngest`), send a signed test webhook, confirm a plain-English summary appears in the dashboard timeline. That closes the Phase 3 milestone.
+- **Open decisions:** None blocking.
+- **Errors in flight:** None in code. `npm run lint && npm run typecheck` clean. Production summarize will fail until `GEMINI_API_KEY` is set in Vercel (currently only in `.env.local`).
 - **Key decisions made this session:**
   - Supabase project: `sucgnzxpljvkplcgvvyu`, region `ap-south-1`, free tier
   - Vercel project: `autowatch` → `https://autowatch.vercel.app`, linked to `akshat333-debug/AutoWatch` on GitHub, auto-deploy on push to `main`
@@ -106,14 +107,16 @@ When I say "snapshot" or before any /compact, update this section:
   - Dashboard route group: `app/(dashboard)/` — layout double-checks auth server-side even though middleware also guards it
   - `lib/supabase-server.ts` = RLS-scoped (user JWT); `lib/supabase-admin.ts` = service-role (bypasses RLS, server-only)
   - Inngest v4 API: triggers go inside options object as `triggers: [{ event: "..." }]` — NOT a 3-arg createFunction call (v3 style breaks in v4)
-  - `lib/anthropic.ts`: `MODEL_SUMMARY = "claude-haiku-4-5"`, `MODEL_DIGEST = "claude-sonnet-4-6"` — hard rule, never swap these
+  - **LLM provider: Gemini** (`@google/genai` v2.8.0). `lib/gemini.ts`: `MODEL_SUMMARY = "gemini-3.1-flash-lite"` (per-event; free tier 15 RPM / 500 RPD), `MODEL_DIGEST = "gemini-3.5-flash"` (Phase 6). Call shape: `gemini.models.generateContent({ model, contents, config: { systemInstruction, responseMimeType: "application/json", temperature: 0, maxOutputTokens: 256 } })` → read `response.text`. `responseMimeType: application/json` guarantees valid JSON. `lib/anthropic.ts` left dormant as fallback.
+  - Ingest route enqueues via `next/server` `after(async () => inngest.send(...))` — NOT bare `void promise` (that gets killed when Vercel freezes the lambda after the 202)
   - `.mcp.json` added to project root: `inngest-dev` MCP server (curl → localhost:8288/mcp); `.claude/settings.json` auto-approves it
-  - Inngest `summarize` function: idempotency on `status === "summarized"` + 23505 on summaries insert; JSON parse fallback; explicit `org_id` on all service-role queries; non-blocking `inngest.send()` in ingest route (fire-and-forget with `.catch()`)
+  - Inngest `summarize` function: idempotency on `status === "summarized"` + 23505 on summaries insert; JSON parse fallback; explicit `org_id` on all service-role queries
+  - Vercel env vars still TODO: **`GEMINI_API_KEY`** (Prod + Preview). `ANTHROPIC_API_KEY` now unused in prod.
 - **Phase history:**
   - Phase 0 ✅ — schema + RLS + Vercel deploy
   - Phase 1 ✅ — magic-link auth + dashboard shell
   - Phase 2 ✅ — endpoints create flow + HMAC ingest + event timeline (commits `b4efeef`, `7e805f0`, `bbaa40d`, `bff80f3`)
-  - Phase 3 ✅ (code) — Inngest + Haiku summarization (commit `47ecee1`); milestone verification pending
+  - Phase 3 ✅ (code) — Inngest summarization pipeline; `after()` enqueue fix (`170d1f4`); provider switched to Gemini; milestone test pending on `GEMINI_API_KEY` in Vercel
 
 After compact:
 Read CLAUDE.md fully, especially this snapshot. Tell me what we were doing and what you're picking up next.
