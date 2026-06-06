@@ -82,3 +82,27 @@ docs/                     # PRD, ARCHITECTURE, DESIGN, API, SCHEMA, SECURITY, ER
 ## Where to start
 
 Read `TASKS.md`. Build in phase order. Don't skip Phase 0 (schema + RLS) — retrofitting tenancy is painful. Current phase and status live in `TASKS.md`.
+
+## Before /compact — always do this first
+
+When I say "snapshot" or before any /compact, update this section:
+
+### Current state snapshot
+
+- **Last completed task:** Phase 1 complete — auth + dashboard shell (commit `dc88ce1`). Sentry auth token added to Vercel after that commit (no code change, env-only).
+- **In progress:** Nothing. Phase 1 milestone pending manual verification (user needs to log in and confirm dashboard loads).
+- **Next task:** Phase 2, Task 1 — `endpoints` create flow: generate `endpoint_key` + `signing_secret` (crypto.randomBytes), store in DB, show secret once on creation.
+- **Open decisions:** None blocking. Phase 1 milestone (`I can log in and see an empty dashboard`) has not been explicitly confirmed by user — assume it works unless they report otherwise.
+- **Errors in flight:** None. `npm run lint && npm run typecheck` passes clean.
+- **Key decisions made this session:**
+  - Supabase project: `sucgnzxpljvkplcgvvyu`, region `ap-south-1`, free tier
+  - Vercel project: `autowatch` → `https://autowatch.vercel.app`, linked to `akshat333-debug/AutoWatch` on GitHub, auto-deploy on push to `main`
+  - Sentry org: `akshat-qv`, project: `autowatch`, DSN set in Vercel + `.env.local`
+  - All Vercel production env vars set: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`, `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`
+  - Auth: magic-link only (no password). `ensureOrgForUser` runs in `/auth/callback` — idempotent org + `org_members` creation via service-role client
+  - Server action pattern: server actions return `void` and use `redirect()` for both success and error paths (no `useActionState` needed for login)
+  - Dashboard route group: `app/(dashboard)/` — layout double-checks auth server-side even though middleware also guards it
+  - `lib/supabase-server.ts` = RLS-scoped (user JWT); `lib/supabase-admin.ts` = service-role (bypasses RLS, server-only)
+
+After compact:
+Read CLAUDE.md fully, especially this snapshot. Tell me what we were doing and what you're picking up next.
