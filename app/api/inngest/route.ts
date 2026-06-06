@@ -1,6 +1,8 @@
 import { serve } from "inngest/next";
 import { inngest } from "@/lib/inngest/client";
 import { summarize } from "@/lib/inngest/summarize";
+import { alertOnFailure } from "@/lib/inngest/alert-on-failure";
+import { checkStalled } from "@/lib/inngest/check-stalled";
 
 // Inngest function registration endpoint.
 // GET  — Inngest dev server / cloud discovery
@@ -8,5 +10,5 @@ import { summarize } from "@/lib/inngest/summarize";
 // PUT  — sync / health check
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [summarize],
+  functions: [summarize, alertOnFailure, checkStalled],
 });
