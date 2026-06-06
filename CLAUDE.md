@@ -90,18 +90,18 @@ When I say "snapshot" or before any /compact, update this section:
 
 ### Current state snapshot
 
-- **Last completed task:** Phase 3 pipeline debugged end-to-end + **switched LLM provider Anthropic → Gemini**. Two real bugs fixed during verification: (1) ingest `void inngest.send()` was killed when Vercel froze the function post-202 → now uses `next/server` `after()` (commit `170d1f4`); (2) Inngest app was never validly synced (signing-key mismatch) → fixed key + re-registered via `PUT /api/inngest` ("Successfully registered"). Then discovered Anthropic account had **no credit** ("credit balance too low") — so swapped per-event summarization to **Gemini `gemini-3.1-flash-lite`** via `@google/genai`.
-- **In progress:** Awaiting `GEMINI_API_KEY` in Vercel env + redeploy + Inngest re-sync, then final milestone test.
-- **Next task:** After user adds `GEMINI_API_KEY` to Vercel (Prod+Preview) and redeploys: re-sync Inngest (or `PUT /api/inngest`), send a signed test webhook, confirm a plain-English summary appears in the dashboard timeline. That closes the Phase 3 milestone.
+- **Last completed task:** Phase 3 ✅ fully verified end-to-end. Two bugs fixed + provider switched: (1) `void inngest.send()` killed post-202 → `next/server` `after()` (commit `170d1f4`); (2) Inngest signing-key mismatch blocked sync → fixed key + re-registered; (3) Anthropic no credit → switched to Gemini `gemini-3.1-flash-lite` (`@google/genai`, commit `bcb55f0`). Milestone verified: signed webhook → Gemini → `"Updated 47 contacts in HubSpot"` + structured fields in DB (status=summarized, model=gemini-3.1-flash-lite). Commit `07dfd0a` closes milestone.
+- **In progress:** Nothing. Phase 3 fully done.
+- **Next task:** Phase 4 — Alerting. Tasks: (1) stalled-detection Inngest cron (event silent for N minutes → insert alert row), (2) failure detection from `is_error` on ingest, (3) alerts inbox UI + resolve action, (4) email via Resend. **Milestone: get emailed when an automation breaks/stalls.**
 - **Open decisions:** None blocking.
-- **Errors in flight:** None in code. `npm run lint && npm run typecheck` clean. Production summarize will fail until `GEMINI_API_KEY` is set in Vercel (currently only in `.env.local`).
+- **Errors in flight:** None. `npm run lint && npm run typecheck` clean. All production env vars set and verified.
 - **Key decisions made this session:**
   - Supabase project: `sucgnzxpljvkplcgvvyu`, region `ap-south-1`, free tier
   - Vercel project: `autowatch` → `https://autowatch.vercel.app`, linked to `akshat333-debug/AutoWatch` on GitHub, auto-deploy on push to `main`
   - Vercel project ID: `prj_uGFevaICkTB1ZNH22rVSVhM6B1t4`, team ID: `team_onpE0A5yfGkttI83BVeodE0B`
   - Sentry org: `akshat-qv`, project: `autowatch`, DSN set in Vercel + `.env.local`
   - Inngest app: `autowatch` on app.inngest.com; synced endpoint: `https://autowatch.vercel.app/api/inngest`; registered function: `summarize-event`
-  - All Vercel production env vars set: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`, `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`
+  - All Vercel production env vars set: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`, `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`, `ANTHROPIC_API_KEY` (unused), `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `GEMINI_API_KEY`
   - Auth: magic-link only (no password). `ensureOrgForUser` runs in `/auth/callback` — idempotent org + `org_members` creation via service-role client
   - Server action pattern: server actions return `void` and use `redirect()` for both success and error paths
   - Dashboard route group: `app/(dashboard)/` — layout double-checks auth server-side even though middleware also guards it
@@ -111,12 +111,12 @@ When I say "snapshot" or before any /compact, update this section:
   - Ingest route enqueues via `next/server` `after(async () => inngest.send(...))` — NOT bare `void promise` (that gets killed when Vercel freezes the lambda after the 202)
   - `.mcp.json` added to project root: `inngest-dev` MCP server (curl → localhost:8288/mcp); `.claude/settings.json` auto-approves it
   - Inngest `summarize` function: idempotency on `status === "summarized"` + 23505 on summaries insert; JSON parse fallback; explicit `org_id` on all service-role queries
-  - Vercel env vars still TODO: **`GEMINI_API_KEY`** (Prod + Preview). `ANTHROPIC_API_KEY` now unused in prod.
+  - To re-register Inngest after a redeploy: `curl -X PUT https://autowatch.vercel.app/api/inngest` → should return `{"message":"Successfully registered","modified":true}`
 - **Phase history:**
   - Phase 0 ✅ — schema + RLS + Vercel deploy
   - Phase 1 ✅ — magic-link auth + dashboard shell
   - Phase 2 ✅ — endpoints create flow + HMAC ingest + event timeline (commits `b4efeef`, `7e805f0`, `bbaa40d`, `bff80f3`)
-  - Phase 3 ✅ (code) — Inngest summarization pipeline; `after()` enqueue fix (`170d1f4`); provider switched to Gemini; milestone test pending on `GEMINI_API_KEY` in Vercel
+  - Phase 3 ✅ — Inngest summarization pipeline; `after()` fix (`170d1f4`); Gemini switch (`bcb55f0`); milestone verified (`07dfd0a`)
 
 After compact:
 Read CLAUDE.md fully, especially this snapshot. Tell me what we were doing and what you're picking up next.
