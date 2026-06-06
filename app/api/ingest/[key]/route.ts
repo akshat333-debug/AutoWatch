@@ -1,5 +1,5 @@
 import "server-only";
-import { type NextRequest } from "next/server";
+import { type NextRequest, after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { verifyHmacSignature } from "@/lib/hmac";
 import { inngest } from "@/lib/inngest/client";
@@ -128,18 +128,24 @@ export async function POST(
     return err("server_error", "Internal server error", 500);
   }
 
-  // ── 9. Enqueue Inngest summarize job (non-blocking) ───────────────────────
-  // Fire-and-forget: the 202 response must never block on Inngest availability.
-  // If keys aren't configured locally, this logs a warning and moves on.
+  // ── 9. Enqueue Inngest summarize job (after response) ────────────────────
+  // `after()` runs after the 202 is sent but keeps the serverless function
+  // alive until the callback settles — no risk of the promise being killed
+  // mid-flight as with bare fire-and-forget (void promise).
+  // If Inngest is unavailable, we log server-side only and the event stays
+  // in "pending" status; no customer impact (event is already stored).
   if (newEvent?.id) {
-    void inngest
-      .send({ name: "event/ingested", data: { eventId: newEvent.id } })
-      .catch((enqueueErr: unknown) => {
+    const eventId = newEvent.id;
+    after(async () => {
+      try {
+        await inngest.send({ name: "event/ingested", data: { eventId } });
+      } catch (enqueueErr: unknown) {
         console.error(
           "[ingest] inngest.send failed — event stored but not enqueued:",
           enqueueErr instanceof Error ? enqueueErr.message : enqueueErr
         );
-      });
+      }
+    });
   }
 
   return Response.json({ ok: true }, { status: 202 });
