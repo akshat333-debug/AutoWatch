@@ -89,20 +89,31 @@ When I say "snapshot" or before any /compact, update this section:
 
 ### Current state snapshot
 
-- **Last completed task:** Phase 1 complete — auth + dashboard shell (commit `dc88ce1`). Sentry auth token added to Vercel after that commit (no code change, env-only).
-- **In progress:** Nothing. Phase 1 milestone pending manual verification (user needs to log in and confirm dashboard loads).
-- **Next task:** Phase 2, Task 1 — `endpoints` create flow: generate `endpoint_key` + `signing_secret` (crypto.randomBytes), store in DB, show secret once on creation.
-- **Open decisions:** None blocking. Phase 1 milestone (`I can log in and see an empty dashboard`) has not been explicitly confirmed by user — assume it works unless they report otherwise.
+- **Last completed task:** Phase 3, Tasks 1–3 — Inngest + Haiku summarization pipeline (commit `47ecee1`). Inngest app created on app.inngest.com (app: `autowatch`), synced to `https://autowatch.vercel.app/api/inngest`. All three keys (`ANTHROPIC_API_KEY`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`) added to Vercel env vars (Production + Preview) and `.env.local`. Vercel redeployed manually — latest deployment `dpl_ALWfU56dpqYMVtyYAgn9pviNEvms` is READY.
+- **In progress:** Nothing.
+- **Next task:** Phase 3, Task 4 — verify Phase 3 milestone end-to-end: send a signed test webhook → confirm "Your CRM zap updated 47 contacts" (or similar) appears in the dashboard timeline. Dashboard UI already joins summaries — just needs a real event to flow through the pipeline.
+- **Open decisions:** None blocking. Phase 3 milestone (`"Your CRM zap updated 47 contacts" on screen`) not yet manually verified — send a test event to confirm.
 - **Errors in flight:** None. `npm run lint && npm run typecheck` passes clean.
 - **Key decisions made this session:**
   - Supabase project: `sucgnzxpljvkplcgvvyu`, region `ap-south-1`, free tier
   - Vercel project: `autowatch` → `https://autowatch.vercel.app`, linked to `akshat333-debug/AutoWatch` on GitHub, auto-deploy on push to `main`
+  - Vercel project ID: `prj_uGFevaICkTB1ZNH22rVSVhM6B1t4`, team ID: `team_onpE0A5yfGkttI83BVeodE0B`
   - Sentry org: `akshat-qv`, project: `autowatch`, DSN set in Vercel + `.env.local`
-  - All Vercel production env vars set: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`, `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`
+  - Inngest app: `autowatch` on app.inngest.com; synced endpoint: `https://autowatch.vercel.app/api/inngest`; registered function: `summarize-event`
+  - All Vercel production env vars set: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`, `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`
   - Auth: magic-link only (no password). `ensureOrgForUser` runs in `/auth/callback` — idempotent org + `org_members` creation via service-role client
-  - Server action pattern: server actions return `void` and use `redirect()` for both success and error paths (no `useActionState` needed for login)
+  - Server action pattern: server actions return `void` and use `redirect()` for both success and error paths
   - Dashboard route group: `app/(dashboard)/` — layout double-checks auth server-side even though middleware also guards it
   - `lib/supabase-server.ts` = RLS-scoped (user JWT); `lib/supabase-admin.ts` = service-role (bypasses RLS, server-only)
+  - Inngest v4 API: triggers go inside options object as `triggers: [{ event: "..." }]` — NOT a 3-arg createFunction call (v3 style breaks in v4)
+  - `lib/anthropic.ts`: `MODEL_SUMMARY = "claude-haiku-4-5"`, `MODEL_DIGEST = "claude-sonnet-4-6"` — hard rule, never swap these
+  - `.mcp.json` added to project root: `inngest-dev` MCP server (curl → localhost:8288/mcp); `.claude/settings.json` auto-approves it
+  - Inngest `summarize` function: idempotency on `status === "summarized"` + 23505 on summaries insert; JSON parse fallback; explicit `org_id` on all service-role queries; non-blocking `inngest.send()` in ingest route (fire-and-forget with `.catch()`)
+- **Phase history:**
+  - Phase 0 ✅ — schema + RLS + Vercel deploy
+  - Phase 1 ✅ — magic-link auth + dashboard shell
+  - Phase 2 ✅ — endpoints create flow + HMAC ingest + event timeline (commits `b4efeef`, `7e805f0`, `bbaa40d`, `bff80f3`)
+  - Phase 3 ✅ (code) — Inngest + Haiku summarization (commit `47ecee1`); milestone verification pending
 
 After compact:
 Read CLAUDE.md fully, especially this snapshot. Tell me what we were doing and what you're picking up next.
