@@ -51,7 +51,11 @@ Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo ·
   - TODO(phase3): Inngest enqueue stub left in place
 - [x] Idempotency on `dedup_key`; quota check → `429`; always return `202`
   - Covered in route above: catches 23505 for duplicate dedup_key (→ 202), quota count query, 429 on exceed
-- [ ] Event timeline (raw events) in dashboard
+- [x] Event timeline (raw events) in dashboard
+  - /dashboard page: fetches events (+ endpoints join + summaries join) ordered by occurred_at desc
+  - Shows endpoint badge, error badge, description (summary text when available, structured fields, or "Pending…")
+  - Server-side relative timestamps; empty state links to /dashboard/endpoints
+  - summaries join included now — Phase 3 just inserts rows, no UI change needed
 - [ ] **Milestone: a signed event lands and shows up**
 
 ## Phase 3 — Summarization
