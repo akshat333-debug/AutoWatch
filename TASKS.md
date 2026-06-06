@@ -40,7 +40,10 @@ Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo ·
 
 ## Phase 2 — Secure ingestion
 
-- [ ] `endpoints` create flow (generate `endpoint_key` + `signing_secret`, show secret once)
+- [x] `endpoints` create flow (generate `endpoint_key` + `signing_secret`, show secret once)
+  - Server action: Zod-validated, RLS-scoped INSERT, crypto.randomBytes(32) for both keys
+  - Client form: useActionState, one-time secret reveal panel with copy buttons
+  - List page: SELECT excludes signing_secret; router.refresh() on Done
 - [ ] `POST /api/ingest/[key]` with HMAC verify (`lib/hmac.ts`, raw body, constant-time compare)
 - [ ] Idempotency on `dedup_key`; quota check → `429`; always return `202`
 - [ ] Event timeline (raw events) in dashboard
