@@ -2,7 +2,7 @@
 
 Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked.
 
-**Current phase:** 3
+**Current phase:** 4
 
 ---
 
@@ -91,10 +91,18 @@ Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo ·
 - [x] Alerts inbox UI + resolve action
   - app/(dashboard)/dashboard/alerts/page.tsx: open/resolved sections, kind/severity badges
   - app/actions/alerts.ts: resolveAlert server action (RLS-scoped, revalidates)
-- [ ] **Milestone: I get emailed when an automation breaks/stalls**
-  - ⚠️ Requires: RESEND_API_KEY set in Vercel + Inngest re-registered after deploy
-  - ⚠️ Free Resend plan requires sending from onboarding@resend.dev or a verified domain
-  - ⚠️ Set expected_interval_seconds on an endpoint to enable stalled detection
+- [~] **Milestone: I get emailed when an automation breaks/stalls**
+  - ✅ Verified end-to-end 2026-06-07:
+    - Signed failure webhook (error:true) → `failure`/warning alert row created by alert-on-failure
+    - check-stalled cron → `stalled`/critical alert row (endpoint silent > expected_interval_seconds=3600)
+    - Resend pipeline confirmed: API returns message id, delivers to account-owner address
+    - RESEND_API_KEY set in Vercel; Inngest re-registered (summarize + alert-on-failure + check-stalled)
+  - ⏳ BLOCKED on email delivery to org owner: Resend free tier + default onboarding@resend.dev
+    sender only delivers to the Resend ACCOUNT owner (akshatagrawal.work@gmail.com), but the
+    AutoWatch org owner is agrawalakshat.coc@gmail.com → in-app alert emails 403 (caught, non-fatal).
+  - 👉 RESOLUTION CHOSEN: verify a domain at resend.com/domains (user DNS action), then set
+    RESEND_FROM_EMAIL=AutoWatch Alerts <alerts@yourdomain.com> in Vercel + redeploy.
+    Code already reads RESEND_FROM_EMAIL (lib/resend.ts) with onboarding@resend.dev fallback.
 
 ## Phase 5 — Monetization
 
