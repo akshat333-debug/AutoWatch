@@ -90,33 +90,36 @@ When I say "snapshot" or before any /compact, update this section:
 
 ### Current state snapshot
 
-- **Last completed task:** Phase 3 ✅ fully verified end-to-end. Two bugs fixed + provider switched: (1) `void inngest.send()` killed post-202 → `next/server` `after()` (commit `170d1f4`); (2) Inngest signing-key mismatch blocked sync → fixed key + re-registered; (3) Anthropic no credit → switched to Gemini `gemini-3.1-flash-lite` (`@google/genai`, commit `bcb55f0`). Milestone verified: signed webhook → Gemini → `"Updated 47 contacts in HubSpot"` + structured fields in DB (status=summarized, model=gemini-3.1-flash-lite). Commit `07dfd0a` closes milestone.
-- **In progress:** Nothing. Phase 3 fully done.
-- **Next task:** Phase 4 — Alerting. Tasks: (1) stalled-detection Inngest cron (event silent for N minutes → insert alert row), (2) failure detection from `is_error` on ingest, (3) alerts inbox UI + resolve action, (4) email via Resend. **Milestone: get emailed when an automation breaks/stalls.**
-- **Open decisions:** None blocking.
-- **Errors in flight:** None. `npm run lint && npm run typecheck` clean. All production env vars set and verified.
-- **Key decisions made this session:**
+- **Last completed task:** Phase 4 ✅ code built + verified end-to-end (commit `2b582ff`). All three Inngest functions registered. Failure alert row + stalled alert row confirmed in DB. Resend pipeline delivers (returns message id). One user action blocks the email milestone: Resend free tier restricts sender to verified domain only.
+- **In progress:** Nothing. Phase 4 code fully done.
+- **Next task:** Phase 5 — Monetization. Tasks: (1) Stripe Checkout + Billing Portal (hosted), (2) `/api/stripe/webhook` → `subscriptions` table, (3) plan gating + usage-vs-quota display in settings. **Milestone: charge real money.**
+- **Open decisions / blocked items:**
+  - **Resend email delivery**: Resend account owner is `akshatagrawal.work@gmail.com` but AutoWatch org owner in DB is `agrawalakshat.coc@gmail.com`. Free tier + default `onboarding@resend.dev` sender only delivers to the account owner email → alert emails 403 (caught as non-fatal, so alert ROWS are created but email doesn't reach inbox). **Resolution chosen: verify a domain at resend.com/domains, then set `RESEND_FROM_EMAIL=AutoWatch Alerts <alerts@yourdomain.com>` in Vercel + redeploy.** Code already reads that env var with `onboarding@resend.dev` fallback (`lib/resend.ts`). No code change needed — just DNS + one Vercel env var.
+- **Errors in flight:** None. `npm run lint && npm run typecheck` clean.
+- **Key decisions / facts to remember:**
   - Supabase project: `sucgnzxpljvkplcgvvyu`, region `ap-south-1`, free tier
   - Vercel project: `autowatch` → `https://autowatch.vercel.app`, linked to `akshat333-debug/AutoWatch` on GitHub, auto-deploy on push to `main`
   - Vercel project ID: `prj_uGFevaICkTB1ZNH22rVSVhM6B1t4`, team ID: `team_onpE0A5yfGkttI83BVeodE0B`
   - Sentry org: `akshat-qv`, project: `autowatch`, DSN set in Vercel + `.env.local`
-  - Inngest app: `autowatch` on app.inngest.com; synced endpoint: `https://autowatch.vercel.app/api/inngest`; registered function: `summarize-event`
-  - All Vercel production env vars set: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`, `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`, `ANTHROPIC_API_KEY` (unused), `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `GEMINI_API_KEY`
+  - Inngest app: `autowatch` on app.inngest.com; synced endpoint: `https://autowatch.vercel.app/api/inngest`; registered functions: `summarize-event`, `alert-on-failure`, `check-stalled`
+  - All Vercel production env vars set: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`, `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`, `ANTHROPIC_API_KEY` (unused), `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `GEMINI_API_KEY`, `RESEND_API_KEY`
+  - Test endpoint: `endpoint_key=3e58993a94ee5109a1d1a9cb9e2d97231aa42f0893c69f76033514ec08c3b6c6`, `signing_secret=8f5adf5213924273d1599503ad6313f2da5283eb2e2091b8567557fc38caad2f`, label="Zapier - CRM sync", `expected_interval_seconds=3600`, org_id=`3ed3fd6c-bc34-4234-afbf-5ebc0dd713fa`
   - Auth: magic-link only (no password). `ensureOrgForUser` runs in `/auth/callback` — idempotent org + `org_members` creation via service-role client
-  - Server action pattern: server actions return `void` and use `redirect()` for both success and error paths
   - Dashboard route group: `app/(dashboard)/` — layout double-checks auth server-side even though middleware also guards it
   - `lib/supabase-server.ts` = RLS-scoped (user JWT); `lib/supabase-admin.ts` = service-role (bypasses RLS, server-only)
   - Inngest v4 API: triggers go inside options object as `triggers: [{ event: "..." }]` — NOT a 3-arg createFunction call (v3 style breaks in v4)
-  - **LLM provider: Gemini** (`@google/genai` v2.8.0). `lib/gemini.ts`: `MODEL_SUMMARY = "gemini-3.1-flash-lite"` (per-event; free tier 15 RPM / 500 RPD), `MODEL_DIGEST = "gemini-3.5-flash"` (Phase 6). Call shape: `gemini.models.generateContent({ model, contents, config: { systemInstruction, responseMimeType: "application/json", temperature: 0, maxOutputTokens: 256 } })` → read `response.text`. `responseMimeType: application/json` guarantees valid JSON. `lib/anthropic.ts` left dormant as fallback.
-  - Ingest route enqueues via `next/server` `after(async () => inngest.send(...))` — NOT bare `void promise` (that gets killed when Vercel freezes the lambda after the 202)
-  - `.mcp.json` added to project root: `inngest-dev` MCP server (curl → localhost:8288/mcp); `.claude/settings.json` auto-approves it
-  - Inngest `summarize` function: idempotency on `status === "summarized"` + 23505 on summaries insert; JSON parse fallback; explicit `org_id` on all service-role queries
-  - To re-register Inngest after a redeploy: `curl -X PUT https://autowatch.vercel.app/api/inngest` → should return `{"message":"Successfully registered","modified":true}`
+  - **LLM provider: Gemini** (`@google/genai` v2.8.0). `lib/gemini.ts`: `MODEL_SUMMARY = "gemini-3.1-flash-lite"` (per-event; free tier 15 RPM / 500 RPD), `MODEL_DIGEST = "gemini-3.5-flash"` (Phase 6). `lib/anthropic.ts` left dormant as fallback.
+  - Ingest route enqueues via `next/server` `after(async () => inngest.send(...))` — NOT bare `void promise`
+  - To re-register Inngest after a redeploy: `curl -X PUT https://autowatch.vercel.app/api/inngest` → `{"message":"Successfully registered","modified":true}`
+  - Resend: `lib/resend.ts` exports `sendAlertEmail()` + `getOrgOwnerEmail()`. Email is best-effort (non-fatal catch). Reads `RESEND_FROM_EMAIL` env var; falls back to `onboarding@resend.dev`.
+  - Alert dedup: stalled alerts — one unresolved per endpoint at a time (checked before insert). Failure alerts — one per error event (no dedup, by design for MVP).
+  - `app/actions/alerts.ts` — `resolveAlert(alertId)` server action, RLS-scoped, calls `revalidatePath("/dashboard/alerts")`
 - **Phase history:**
   - Phase 0 ✅ — schema + RLS + Vercel deploy
   - Phase 1 ✅ — magic-link auth + dashboard shell
   - Phase 2 ✅ — endpoints create flow + HMAC ingest + event timeline (commits `b4efeef`, `7e805f0`, `bbaa40d`, `bff80f3`)
   - Phase 3 ✅ — Inngest summarization pipeline; `after()` fix (`170d1f4`); Gemini switch (`bcb55f0`); milestone verified (`07dfd0a`)
+  - Phase 4 ✅ — Alerting: failure detection, stalled cron, alerts inbox UI, Resend email (commit `2b582ff`); milestone ⏳ pending Resend domain verification
 
 After compact:
 Read CLAUDE.md fully, especially this snapshot. Tell me what we were doing and what you're picking up next.
