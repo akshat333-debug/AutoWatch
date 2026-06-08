@@ -124,10 +124,23 @@ Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo ·
 
 ## Phase 6 — Digest + export
 
-- [ ] Daily digest Inngest cron (Sonnet 4.6, Batch API) → Resend
-- [ ] Retention purge cron (delete raw payloads past `retention_days`)
-- [ ] PDF export (pdf-lib), Pro-gated
-- [ ] **Milestone: digest arrives; export works**
+- [x] Daily digest Inngest cron (Gemini 3.5 Flash) → Resend
+  - lib/inngest/daily-digest.ts: 07:00 UTC cron; iterates orgs with activity/open alerts
+  - Gemini 3.5 Flash 2-3 sentence narrative + breakdown table + open alerts
+  - Graceful LLM fallback: composes narrative from stats if Gemini fails
+- [x] Retention purge cron (nulls raw_payload past retention_days)
+  - lib/inngest/retention-purge.ts: 03:00 UTC cron; sets raw_payload={"_purged":true}
+  - Preserves event row + summary for stats, removes PII-bearing payload
+  - Processes in batches of 500 per org per run
+- [x] PDF export (pdf-lib), Pro-gated
+  - app/api/export/route.ts: GET /api/export?from=&to=, Pro plan check, pdf-lib A4
+  - Multi-page, event table: time/endpoint/summary/status, up to 500 events
+  - ExportForm date-range UI in settings (locked for non-Pro)
+- [~] **Milestone: digest arrives; export works**
+  - ⏳ Blocked: Inngest re-registration needed after deploy (curl -X PUT .../api/inngest)
+  - ⏳ Blocked: Resend domain verification + RESEND_FROM_EMAIL for digest delivery
+  - ⏳ Blocked: Stripe Pro plan needed to test PDF export unlock
+  - Commit: 09380d6
 
 ## Phase 7 — Polish
 
