@@ -29,6 +29,12 @@ export function DashboardNav({ email }: { email: string }) {
           >
             Endpoints
           </Link>
+          <Link
+            href="/dashboard/settings"
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Settings
+          </Link>
         </nav>
         <div className="flex items-center gap-3 text-sm">
           <span className="text-muted-foreground hidden sm:block">{email}</span>
