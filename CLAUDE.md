@@ -90,36 +90,46 @@ When I say "snapshot" or before any /compact, update this section:
 
 ### Current state snapshot
 
-- **Last completed task:** Phase 4 ✅ code built + verified end-to-end (commit `2b582ff`). All three Inngest functions registered. Failure alert row + stalled alert row confirmed in DB. Resend pipeline delivers (returns message id). One user action blocks the email milestone: Resend free tier restricts sender to verified domain only.
-- **In progress:** Nothing. Phase 4 code fully done.
-- **Next task:** Phase 5 — Monetization. Tasks: (1) Stripe Checkout + Billing Portal (hosted), (2) `/api/stripe/webhook` → `subscriptions` table, (3) plan gating + usage-vs-quota display in settings. **Milestone: charge real money.**
+- **Last completed task:** Phase 6 ✅ code built (commit `09380d6`). Daily digest cron, retention purge cron, PDF export, settings export UI all done. `npm run lint && npm run typecheck` clean.
+- **In progress:** Nothing. Phase 6 code fully done.
+- **Next task:** Phase 7 — Polish. Tasks: (1) onboarding flow with "waiting for first event" live state, (2) per-platform setup guides (Zapier / Make / n8n signing instructions), (3) search/filter events + mobile pass.
 - **Open decisions / blocked items:**
-  - **Resend email delivery**: Resend account owner is `akshatagrawal.work@gmail.com` but AutoWatch org owner in DB is `agrawalakshat.coc@gmail.com`. Free tier + default `onboarding@resend.dev` sender only delivers to the account owner email → alert emails 403 (caught as non-fatal, so alert ROWS are created but email doesn't reach inbox). **Resolution chosen: verify a domain at resend.com/domains, then set `RESEND_FROM_EMAIL=AutoWatch Alerts <alerts@yourdomain.com>` in Vercel + redeploy.** Code already reads that env var with `onboarding@resend.dev` fallback (`lib/resend.ts`). No code change needed — just DNS + one Vercel env var.
+  - **Resend email delivery**: Resend account owner is `akshatagrawal.work@gmail.com` but AutoWatch org owner in DB is `agrawalakshat.coc@gmail.com`. Free tier + default `onboarding@resend.dev` sender only delivers to account-owner email. **Resolution chosen: verify a domain at resend.com/domains, set `RESEND_FROM_EMAIL=AutoWatch Alerts <alerts@yourdomain.com>` in Vercel + redeploy.** Code reads `RESEND_FROM_EMAIL` env var with `onboarding@resend.dev` fallback. No code change needed.
+  - **Stripe keys**: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_STARTER_PRICE_ID`, `STRIPE_PRO_PRICE_ID` not yet added to Vercel. Phase 5 milestone blocked until user adds them.
+  - **Inngest re-registration**: After each deploy, run `curl -X PUT https://autowatch.vercel.app/api/inngest`. Now 5 functions: `summarize-event`, `alert-on-failure`, `check-stalled`, `daily-digest`, `retention-purge`.
 - **Errors in flight:** None. `npm run lint && npm run typecheck` clean.
 - **Key decisions / facts to remember:**
   - Supabase project: `sucgnzxpljvkplcgvvyu`, region `ap-south-1`, free tier
   - Vercel project: `autowatch` → `https://autowatch.vercel.app`, linked to `akshat333-debug/AutoWatch` on GitHub, auto-deploy on push to `main`
   - Vercel project ID: `prj_uGFevaICkTB1ZNH22rVSVhM6B1t4`, team ID: `team_onpE0A5yfGkttI83BVeodE0B`
   - Sentry org: `akshat-qv`, project: `autowatch`, DSN set in Vercel + `.env.local`
-  - Inngest app: `autowatch` on app.inngest.com; synced endpoint: `https://autowatch.vercel.app/api/inngest`; registered functions: `summarize-event`, `alert-on-failure`, `check-stalled`
+  - Inngest app: `autowatch` on app.inngest.com; synced endpoint: `https://autowatch.vercel.app/api/inngest`; 5 registered functions (see above)
   - All Vercel production env vars set: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`, `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`, `ANTHROPIC_API_KEY` (unused), `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `GEMINI_API_KEY`, `RESEND_API_KEY`
+  - Stripe env vars NOT yet in Vercel: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_STARTER_PRICE_ID`, `STRIPE_PRO_PRICE_ID`
   - Test endpoint: `endpoint_key=3e58993a94ee5109a1d1a9cb9e2d97231aa42f0893c69f76033514ec08c3b6c6`, `signing_secret=8f5adf5213924273d1599503ad6313f2da5283eb2e2091b8567557fc38caad2f`, label="Zapier - CRM sync", `expected_interval_seconds=3600`, org_id=`3ed3fd6c-bc34-4234-afbf-5ebc0dd713fa`
   - Auth: magic-link only (no password). `ensureOrgForUser` runs in `/auth/callback` — idempotent org + `org_members` creation via service-role client
   - Dashboard route group: `app/(dashboard)/` — layout double-checks auth server-side even though middleware also guards it
   - `lib/supabase-server.ts` = RLS-scoped (user JWT); `lib/supabase-admin.ts` = service-role (bypasses RLS, server-only)
   - Inngest v4 API: triggers go inside options object as `triggers: [{ event: "..." }]` — NOT a 3-arg createFunction call (v3 style breaks in v4)
-  - **LLM provider: Gemini** (`@google/genai` v2.8.0). `lib/gemini.ts`: `MODEL_SUMMARY = "gemini-3.1-flash-lite"` (per-event; free tier 15 RPM / 500 RPD), `MODEL_DIGEST = "gemini-3.5-flash"` (Phase 6). `lib/anthropic.ts` left dormant as fallback.
+  - **LLM provider: Gemini** (`@google/genai` v2.8.0). `lib/gemini.ts`: `MODEL_SUMMARY = "gemini-3.1-flash-lite"` (per-event; free tier 15 RPM / 500 RPD), `MODEL_DIGEST = "gemini-3.5-flash"` (daily digest). `lib/anthropic.ts` left dormant as fallback.
   - Ingest route enqueues via `next/server` `after(async () => inngest.send(...))` — NOT bare `void promise`
-  - To re-register Inngest after a redeploy: `curl -X PUT https://autowatch.vercel.app/api/inngest` → `{"message":"Successfully registered","modified":true}`
   - Resend: `lib/resend.ts` exports `sendAlertEmail()` + `getOrgOwnerEmail()`. Email is best-effort (non-fatal catch). Reads `RESEND_FROM_EMAIL` env var; falls back to `onboarding@resend.dev`.
-  - Alert dedup: stalled alerts — one unresolved per endpoint at a time (checked before insert). Failure alerts — one per error event (no dedup, by design for MVP).
+  - Alert dedup: stalled — one unresolved per endpoint at a time. Failure — one per error event (no dedup, MVP).
   - `app/actions/alerts.ts` — `resolveAlert(alertId)` server action, RLS-scoped, calls `revalidatePath("/dashboard/alerts")`
+  - **Stripe**: `lib/stripe.ts` — singleton, `PLANS` (free/500, starter/$9/5k, pro/$29/50k), `Stripe.API_VERSION = "2026-05-27.dahlia"`. `app/actions/billing.ts` — `createCheckoutSession(plan)` + `createBillingPortalSession()`. Webhook at `app/api/stripe/webhook/route.ts` handles checkout.session.completed, subscription.updated/deleted, invoice.payment_failed. Note: Stripe API 2026-05-27 removed `current_period_end` from Subscription; use `billing_schedules[0]?.bill_until?.computed_timestamp` instead.
+  - **PDF export**: `app/api/export/route.ts` — GET with `?from=YYYY-MM-DD&to=YYYY-MM-DD`, Pro-gated, pdf-lib A4 multi-page table. `ExportForm` component in settings page.
+  - **Retention purge**: `lib/inngest/retention-purge.ts` — sets `raw_payload = {"_purged":true}` (NOT NULL constraint satisfied with empty-ish object) for events older than `org.retention_days`. Does NOT delete rows — preserves event counts.
+  - **Daily digest**: `lib/inngest/daily-digest.ts` — 07:00 UTC cron, iterates orgs with activity or open alerts in last 24h, Gemini 3.5 Flash narrative + HTML email via Resend. Hard fallback if Gemini fails.
+  - `app/(dashboard)/dashboard/settings/page.tsx` — plan display, usage bar (events/quota with color thresholds), upgrade cards (Starter/Pro), Billing Portal for paying users, ExportForm (Pro-gated).
+  - Nav links: Activity | Alerts | Endpoints | Settings
 - **Phase history:**
   - Phase 0 ✅ — schema + RLS + Vercel deploy
   - Phase 1 ✅ — magic-link auth + dashboard shell
   - Phase 2 ✅ — endpoints create flow + HMAC ingest + event timeline (commits `b4efeef`, `7e805f0`, `bbaa40d`, `bff80f3`)
   - Phase 3 ✅ — Inngest summarization pipeline; `after()` fix (`170d1f4`); Gemini switch (`bcb55f0`); milestone verified (`07dfd0a`)
   - Phase 4 ✅ — Alerting: failure detection, stalled cron, alerts inbox UI, Resend email (commit `2b582ff`); milestone ⏳ pending Resend domain verification
+  - Phase 5 ✅ — Monetization: Stripe Checkout + Portal + webhook + settings page (commit `be23ec6`); milestone ⏳ pending Stripe keys in Vercel
+  - Phase 6 ✅ — Digest + export: daily-digest cron, retention-purge cron, PDF export, ExportForm UI (commit `09380d6`); milestone ⏳ pending Inngest re-registration + Resend domain + Stripe Pro plan
 
 After compact:
 Read CLAUDE.md fully, especially this snapshot. Tell me what we were doing and what you're picking up next.
