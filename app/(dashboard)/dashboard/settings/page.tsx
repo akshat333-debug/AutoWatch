@@ -223,12 +223,93 @@ export default async function SettingsPage({
         </section>
       )}
 
+      {/* PDF export — Pro only */}
+      <section className="rounded-lg border p-6 space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="font-medium flex items-center gap-2">
+              Export
+              {currentPlan !== "pro" && (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  Pro
+                </span>
+              )}
+            </h2>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              Download a PDF of your automation events for any date range.
+            </p>
+          </div>
+        </div>
+
+        {currentPlan === "pro" ? (
+          <ExportForm />
+        ) : (
+          <p className="text-sm text-muted-foreground italic">
+            Upgrade to Pro to unlock PDF compliance exports.
+          </p>
+        )}
+      </section>
+
       {/* Account */}
       <section className="rounded-lg border p-6 space-y-2">
         <h2 className="font-medium">Account</h2>
         <p className="text-sm text-muted-foreground">{user.email}</p>
       </section>
     </div>
+  );
+}
+
+// ── Export form component ─────────────────────────────────────────────────────
+// A plain GET form — the browser navigates to /api/export?from=...&to=...
+// which returns a PDF download. No JS needed; works with session cookies.
+
+function ExportForm() {
+  const today = new Date().toISOString().slice(0, 10);
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
+  return (
+    <form
+      method="GET"
+      action="/api/export"
+      className="flex flex-wrap items-end gap-3"
+    >
+      <div className="flex flex-col gap-1">
+        <label htmlFor="export-from" className="text-xs text-muted-foreground">
+          From
+        </label>
+        <input
+          id="export-from"
+          type="date"
+          name="from"
+          defaultValue={thirtyDaysAgo}
+          max={today}
+          required
+          className="rounded-md border px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="export-to" className="text-xs text-muted-foreground">
+          To
+        </label>
+        <input
+          id="export-to"
+          type="date"
+          name="to"
+          defaultValue={today}
+          max={today}
+          required
+          className="rounded-md border px-3 py-1.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+        />
+      </div>
+      <button
+        type="submit"
+        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+      >
+        Download PDF
+      </button>
+    </form>
   );
 }
 
