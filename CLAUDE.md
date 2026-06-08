@@ -90,9 +90,9 @@ When I say "snapshot" or before any /compact, update this section:
 
 ### Current state snapshot
 
-- **Last completed task:** Phase 6 ✅ code built (commit `09380d6`). Daily digest cron, retention purge cron, PDF export, settings export UI all done. `npm run lint && npm run typecheck` clean.
-- **In progress:** Nothing. Phase 6 code fully done.
-- **Next task:** Phase 7 — Polish. Tasks: (1) onboarding flow with "waiting for first event" live state, (2) per-platform setup guides (Zapier / Make / n8n signing instructions), (3) search/filter events + mobile pass.
+- **Last completed task:** Full UI test pass + nav fixes (commit `c8a207d`). Tested every page and interaction end-to-end; fixed two bugs: active nav highlight and mobile hamburger menu. `npm run lint && npm run typecheck` clean.
+- **In progress:** Nothing. Phase 7 partial — mobile pass done; onboarding flow and per-platform setup guides still TODO.
+- **Next task:** Phase 7 remaining items: (1) onboarding flow with "waiting for first event" live state, (2) per-platform setup guides (Zapier / Make / n8n signing instructions shown on endpoint detail/create page).
 - **Open decisions / blocked items:**
   - **Resend email delivery**: Resend account owner is `akshatagrawal.work@gmail.com` but AutoWatch org owner in DB is `agrawalakshat.coc@gmail.com`. Free tier + default `onboarding@resend.dev` sender only delivers to account-owner email. **Resolution chosen: verify a domain at resend.com/domains, set `RESEND_FROM_EMAIL=AutoWatch Alerts <alerts@yourdomain.com>` in Vercel + redeploy.** Code reads `RESEND_FROM_EMAIL` env var with `onboarding@resend.dev` fallback. No code change needed.
   - **Stripe keys**: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_STARTER_PRICE_ID`, `STRIPE_PRO_PRICE_ID` not yet added to Vercel. Phase 5 milestone blocked until user adds them.
@@ -121,7 +121,8 @@ When I say "snapshot" or before any /compact, update this section:
   - **Retention purge**: `lib/inngest/retention-purge.ts` — sets `raw_payload = {"_purged":true}` (NOT NULL constraint satisfied with empty-ish object) for events older than `org.retention_days`. Does NOT delete rows — preserves event counts.
   - **Daily digest**: `lib/inngest/daily-digest.ts` — 07:00 UTC cron, iterates orgs with activity or open alerts in last 24h, Gemini 3.5 Flash narrative + HTML email via Resend. Hard fallback if Gemini fails.
   - `app/(dashboard)/dashboard/settings/page.tsx` — plan display, usage bar (events/quota with color thresholds), upgrade cards (Starter/Pro), Billing Portal for paying users, ExportForm (Pro-gated).
-  - Nav links: Activity | Alerts | Endpoints | Settings
+  - **Nav** (`components/dashboard-nav.tsx`) — client component, uses `usePathname()` for active link highlighting (`font-medium` + foreground color). Mobile: hamburger/X toggle (`sm:hidden`), dropdown with vertical links + email + sign-out. Desktop links hidden on mobile via `hidden sm:block`.
+  - Nav active logic: `href === "/dashboard"` exact match for Activity; `pathname.startsWith(href)` for all others.
 - **Phase history:**
   - Phase 0 ✅ — schema + RLS + Vercel deploy
   - Phase 1 ✅ — magic-link auth + dashboard shell
@@ -130,6 +131,7 @@ When I say "snapshot" or before any /compact, update this section:
   - Phase 4 ✅ — Alerting: failure detection, stalled cron, alerts inbox UI, Resend email (commit `2b582ff`); milestone ⏳ pending Resend domain verification
   - Phase 5 ✅ — Monetization: Stripe Checkout + Portal + webhook + settings page (commit `be23ec6`); milestone ⏳ pending Stripe keys in Vercel
   - Phase 6 ✅ — Digest + export: daily-digest cron, retention-purge cron, PDF export, ExportForm UI (commit `09380d6`); milestone ⏳ pending Inngest re-registration + Resend domain + Stripe Pro plan
+  - Phase 7 🔄 — Polish in progress: mobile nav + active state done (commit `c8a207d`); onboarding flow + platform setup guides still TODO
 
 After compact:
 Read CLAUDE.md fully, especially this snapshot. Tell me what we were doing and what you're picking up next.
