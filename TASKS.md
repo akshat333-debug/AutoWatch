@@ -2,7 +2,7 @@
 
 Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked.
 
-**Current phase:** 4
+**Current phase:** 5
 
 ---
 
@@ -106,10 +106,21 @@ Build in phase order. Don't skip Phase 0. Update status as you go: `[ ]` todo ·
 
 ## Phase 5 — Monetization
 
-- [ ] Stripe Checkout + Billing Portal (hosted, no custom UI)
-- [ ] `/api/stripe/webhook` (raw body, signature, idempotent) → `subscriptions` + plan/quota
-- [ ] Plan gating + usage-vs-quota display in settings
-- [ ] **Milestone: I can charge real money**
+- [x] Stripe Checkout + Billing Portal (hosted, no custom UI)
+  - lib/stripe.ts: singleton, PLANS constants (free 500 / starter 5k / pro 50k), getPriceId, planFromPriceId
+  - app/actions/billing.ts: createCheckoutSession + createBillingPortalSession server actions
+- [x] `/api/stripe/webhook` (raw body, signature, idempotent) → `subscriptions` + plan/quota
+  - Handles checkout.session.completed, subscription.updated/deleted, invoice.payment_failed
+  - upserts subscriptions table + updates orgs.plan + orgs.monthly_event_quota
+  - Compatible with Stripe API 2026-05-27.dahlia (billing_schedules[0].bill_until.computed_timestamp)
+- [x] Plan gating + usage-vs-quota display in settings
+  - app/(dashboard)/dashboard/settings/page.tsx: usage bar, upgrade cards, billing portal link
+  - Settings link added to DashboardNav
+- [~] **Milestone: I can charge real money**
+  - ⏳ BLOCKED on Stripe keys: add STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_STARTER_PRICE_ID,
+    STRIPE_PRO_PRICE_ID to Vercel env vars (and .env.local for local testing), then redeploy.
+  - Local webhook testing: `stripe listen --forward-to localhost:3000/api/stripe/webhook`
+  - Commit: be23ec6
 
 ## Phase 6 — Digest + export
 
